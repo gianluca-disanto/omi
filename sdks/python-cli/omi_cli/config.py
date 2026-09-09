@@ -94,7 +94,9 @@ class Profile:
         return out
 
     @classmethod
-    def from_toml_dict(cls, name: str, data: dict[str, Any]) -> "Profile":
+    def from_toml_dict(cls, name: str, data: dict[str, Any] | Any) -> "Profile":
+        if not isinstance(data, dict):
+            return cls(name=name)
         known = {
             "auth_method",
             "api_key",
@@ -200,7 +202,32 @@ def load(path: Optional[Path] = None) -> Config:
             )
 
     active = data.get("active_profile", DEFAULT_PROFILE_NAME)
+    if not isinstance(active, str):
+        return Config(
+            path=p,
+            active_profile=DEFAULT_PROFILE_NAME,
+            profiles={},
+            load_error=f"config file active_profile must be a string, got {type(active).__name__}",
+        )
+
     profiles_data = data.get("profiles", {})
+    if not isinstance(profiles_data, dict):
+        return Config(
+            path=p,
+            active_profile=active,
+            profiles={},
+            load_error=f"config file profiles must be a table, got {type(profiles_data).__name__}",
+        )
+
+    for name, raw in profiles_data.items():
+        if not isinstance(raw, dict):
+            return Config(
+                path=p,
+                active_profile=active,
+                profiles={},
+                load_error=f"config file profile '{name}' must be a table, got {type(raw).__name__}",
+            )
+
     profiles = {name: Profile.from_toml_dict(name, raw) for name, raw in profiles_data.items()}
 
     extra = {key: value for key, value in data.items() if key not in {"active_profile", "profiles"}}

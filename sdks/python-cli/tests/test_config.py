@@ -380,3 +380,33 @@ def test_is_authenticated_states() -> None:
     p.id_token = None
     p.refresh_token = "refr..."
     assert p.is_authenticated()
+
+
+def test_load_non_table_profiles_records_load_error(config_path: Path) -> None:
+    """Issue #13340: TOML with profiles as a scalar string must not raise AttributeError."""
+    config_path.write_text('profiles = "mistake"\n', encoding="utf-8")
+    config = cfg.load()
+    assert config.path == config_path
+    assert config.profiles == {}
+    assert config.was_load_error
+    assert config.load_error is not None
+    assert "profiles must be a table" in config.load_error
+
+
+def test_load_non_table_profile_entry_records_load_error(config_path: Path) -> None:
+    """Issue #13340: TOML with a non-table profile entry must not raise AttributeError."""
+    config_path.write_text('[profiles]\ndefault = "mistake"\n', encoding="utf-8")
+    config = cfg.load()
+    assert config.path == config_path
+    assert config.profiles == {}
+    assert config.was_load_error
+    assert config.load_error is not None
+    assert "profile 'default' must be a table" in config.load_error
+
+
+def test_profile_from_toml_dict_non_dict_fallback() -> None:
+    """from_toml_dict safely handles non-dict input without raising."""
+    p = cfg.Profile.from_toml_dict("custom", "not-a-dict")
+    assert p.name == "custom"
+    assert p.auth_method is None
+
